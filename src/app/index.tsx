@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import {
-  Button,
   ImageBackground,
   Pressable,
   StyleSheet,
@@ -57,14 +56,10 @@ export default function HomeScreen() {
 
   const currentCity = cities[displayedCity];
 
-  // Обробник натискання Button1
-  const handleButtonPress = () => {
-    setDisplayedCity(selectedCity);
-  };
-
   // Обробник вибору міста
   const handleCitySelect = (cityKey: string) => {
     setSelectedCity(cityKey);
+    setDisplayedCity(cityKey);
     setIsOpen(false);
   };
 
@@ -133,14 +128,6 @@ export default function HomeScreen() {
 
             </View>
           )}
-        </View>
-
-        {/* Button1 */}
-        <View style={styles.buttonContainer}>
-          <Button
-            title="Button1 — Показати інформацію"
-            onPress={handleButtonPress}
-          />
         </View>
 
         {/* Інформація про вибране місто */}
