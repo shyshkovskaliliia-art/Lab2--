@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 
 import {
   ImageBackground,
   Pressable,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -54,6 +58,9 @@ export default function HomeScreen() {
   // Відкритий чи закритий dropdown
   const [isOpen, setIsOpen] = useState(false);
 
+  // Текст повідомлення
+  const [message, setMessage] = useState('');
+
   const currentCity = cities[displayedCity];
 
   // Обробник вибору міста
@@ -63,14 +70,36 @@ export default function HomeScreen() {
     setIsOpen(false);
   };
 
+  const handleSendInApp = () => {
+    if (message.trim()) {
+      router.push({
+        pathname: '/message' as any,
+        params: {
+          text: message,
+        },
+      });
+    }
+  };
+
+  // Пересилання повідомлення в інші застосунки
+  const handleShare = async () => {
+    if (message.trim()) {
+      await Share.share({
+        message: message,
+      });
+    }
+  };
+
   return (
     <ImageBackground
       source={currentCity.image}
       style={styles.background}
       imageStyle={styles.backgroundImage}
     >
-      <View style={styles.container}>
-
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Заголовок */}
         <Text style={styles.title}>МІСТА СВІТУ</Text>
 
@@ -143,7 +172,53 @@ export default function HomeScreen() {
 
         </View>
 
-      </View>
+        {/* ========================= */}
+        {/* ПОВІДОМЛЕННЯ */}
+        {/* ========================= */}
+
+        <View style={styles.messageSection}>
+
+          <Text style={styles.messageTitle}>
+            Повідомлення
+          </Text>
+
+          <Text style={styles.messageLabel}>
+            Введіть повідомлення:
+          </Text>
+
+          {/* Поле для введення повідомлення */}
+          <TextInput
+            style={styles.messageInput}
+            placeholder="Напишіть повідомлення..."
+            placeholderTextColor="#888888"
+            value={message}
+            onChangeText={setMessage}
+            multiline
+          />
+
+          {/* Кнопка для передачі повідомлення в цьому застосунку */}
+          <Pressable
+            style={styles.sendButton}
+            onPress={handleSendInApp}
+          >
+            <Text style={styles.sendButtonText}>
+              Переслати в застосунку
+            </Text>
+          </Pressable>
+
+          {/* Кнопка для передачі повідомлення іншим застосункам */}
+          <Pressable
+            style={styles.shareButton}
+            onPress={handleShare}
+          >
+            <Text style={styles.shareButtonText}>
+              Поділитися з іншими додатками
+            </Text>
+          </Pressable>
+
+        </View>
+
+      </ScrollView>
     </ImageBackground>
   );
 }
@@ -158,7 +233,7 @@ const styles = StyleSheet.create({
   },
 
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.82)',
@@ -233,10 +308,6 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  buttonContainer: {
-    marginBottom: 25,
-  },
-
   /* Блок інформації */
   infoContainer: {
     backgroundColor: '#FFFFFF',
@@ -257,5 +328,73 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     color: '#000000',
+  },
+
+  /* ========================= */
+  /* СТИЛІ ПОВІДОМЛЕННЯ */
+  /* ========================= */
+
+  messageSection: {
+    marginTop: 25,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+  },
+
+  messageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#000000',
+  },
+
+  messageLabel: {
+    fontSize: 18,
+    marginBottom: 10,
+    color: '#000000',
+  },
+
+  /* Поле введення повідомлення */
+  messageInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 17,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    color: '#000000',
+  },
+
+  /* Кнопка пересилання у цьому застосунку */
+  sendButton: {
+    backgroundColor: '#208AEF',
+    borderRadius: 10,
+    padding: 15,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+
+  /* Кнопка передачі іншим застосункам */
+  shareButton: {
+    backgroundColor: '#333333',
+    borderRadius: 10,
+    padding: 15,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+
+  shareButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
   },
 });
