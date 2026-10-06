@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { getLocales } from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { testSupabaseConnection } from '@/lib/testSupabase';
 import {
   AppState,
   ImageBackground,
