@@ -5,6 +5,8 @@ import React, {
   useState,
 } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { supabase } from '@/lib/supabase';
 
 type User = {
@@ -13,16 +15,22 @@ type User = {
   name: string;
 };
 
+type SignInResult = {
+  success: boolean;
+  message?: string;
+};
+
 type AuthContextType = {
   user: User | null;
-  setUser: React.Dispatch<
-    React.SetStateAction<User | null>
-  >;
   isLoading: boolean;
+  signIn: (login: string) => Promise<SignInResult>;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext =
   createContext<AuthContextType | null>(null);
+
+const USER_STORAGE_KEY = 'lab2_auth_user';
 
 export function AuthProvider({
   children,
@@ -35,38 +43,37 @@ export function AuthProvider({
   const [isLoading, setIsLoading] =
     useState(true);
 
+  // Завантаження збереженого користувача
   useEffect(() => {
-    const loadUser = async () => {
+    const loadSavedUser = async () => {
       try {
         console.log(
-          '🔄 Завантаження користувача...'
+          '🔄 Перевірка збереженої авторизації...'
         );
 
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, login, name')
-          .eq('login', 'liliia')
-          .single();
-
-        if (error) {
-          console.log(
-            '🔴 Помилка отримання користувача:',
-            error.message
-          );
-          return;
-        }
-
-        if (data) {
-          console.log(
-            '🟢 Користувач завантажений:',
-            data
+        const savedUser =
+          await AsyncStorage.getItem(
+            USER_STORAGE_KEY
           );
 
-          setUser(data);
+        if (savedUser) {
+          const parsedUser: User =
+            JSON.parse(savedUser);
+
+          console.log(
+            '🟢 Знайдено збереженого користувача:',
+            parsedUser
+          );
+
+          setUser(parsedUser);
+        } else {
+          console.log(
+            'ℹ️ Збереженого користувача немає'
+          );
         }
       } catch (error) {
         console.log(
-          '🔴 Помилка:',
+          '🔴 Помилка завантаження користувача:',
           error
         );
       } finally {
@@ -74,15 +81,115 @@ export function AuthProvider({
       }
     };
 
-    loadUser();
+    loadSavedUser();
   }, []);
+
+  // Авторизація за логіном
+  const signIn = async (
+    login: string
+  ): Promise<SignInResult> => {
+    try {
+      const cleanLogin =
+        login.trim().toLowerCase();
+
+      console.log(
+        '🔐 Спроба авторизації:',
+        cleanLogin
+      );
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, login, name')
+        .eq('login', cleanLogin)
+        .maybeSingle();
+
+      if (error) {
+        console.log(
+          '🔴 Помилка пошуку користувача:',
+          error
+        );
+
+        return {
+          success: false,
+          message:
+            'Помилка підключення до бази даних',
+        };
+      }
+
+      if (!data) {
+        console.log(
+          '🔴 Користувача не знайдено'
+        );
+
+        return {
+          success: false,
+          message:
+            'Користувача з таким логіном не знайдено',
+        };
+      }
+
+      const loggedUser: User = {
+        id: data.id,
+        login: data.login,
+        name: data.name,
+      };
+
+      setUser(loggedUser);
+
+      await AsyncStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify(loggedUser)
+      );
+
+      console.log(
+        '🟢 Авторизація успішна:',
+        loggedUser
+      );
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.log(
+        '🔴 Помилка авторизації:',
+        error
+      );
+
+      return {
+        success: false,
+        message:
+          'Сталася помилка під час авторизації',
+      };
+    }
+  };
+
+  // Вихід
+  const signOut = async () => {
+    try {
+      console.log(
+        '🚪 Вихід користувача'
+      );
+
+      setUser(null);
+
+      await AsyncStorage.removeItem(
+        USER_STORAGE_KEY
+      );
+    } catch (error) {
+      console.log(
+        '🔴 Помилка виходу:',
+        error
+      );
+    }
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        setUser,
         isLoading,
+        signIn,
+        signOut,
       }}
     >
       {children}
@@ -91,7 +198,8 @@ export function AuthProvider({
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context =
+    useContext(AuthContext);
 
   if (!context) {
     throw new Error(
