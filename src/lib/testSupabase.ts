@@ -7,9 +7,18 @@ export async function testSupabaseConnection() {
 
   if (error) {
     console.log('❌ Помилка Supabase:', error);
-    return;
+
+    return {
+      success: false,
+      message: error.message,
+    };
   }
 
   console.log('✅ Supabase підключено!');
   console.log('Користувачі:', data);
+
+  return {
+    success: true,
+    data,
+  };
 }
