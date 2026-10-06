@@ -46,19 +46,18 @@ const EMPTY_TIMER: TimerState = {
 
 const cities: Record<CityKey, City> = {
   paris: {
-    image: require('../../assets/images/paris.jpg'),
-  },
+image: require('../../../assets/images/paris.jpg'),  },
 
   tokyo: {
-    image: require('../../assets/images/tokyo.jpg'),
+    image: require('../../../assets/images/tokyo.jpg'),
   },
 
   newyork: {
-    image: require('../../assets/images/newyork.jpg'),
+    image: require('../../../assets/images/newyork.jpg'),
   },
 
   kyiv: {
-    image: require('../../assets/images/kyiv.jpg'),
+    image: require('../../../assets/images/kyiv.jpg'),
   },
 };
 
