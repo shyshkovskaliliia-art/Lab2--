@@ -6,28 +6,50 @@ import {
   View,
 } from 'react-native';
 
+import {
+  isLanguage,
+  translations,
+  type Language,
+} from '@/constants/translations';
+
 export default function MessageScreen() {
-  const { text } = useLocalSearchParams<{ text: string }>();
+  const params = useLocalSearchParams<{
+    text?: string;
+    lang?: string;
+  }>();
+
+  const rawLanguage = Array.isArray(params.lang)
+    ? params.lang[0]
+    : params.lang;
+
+  const language: Language =
+    rawLanguage && isLanguage(rawLanguage)
+      ? rawLanguage
+      : 'uk';
+
+  const rawText = Array.isArray(params.text)
+    ? params.text[0]
+    : params.text;
+
+  const message = rawText ?? '';
+
+  const t = translations[language];
 
   return (
     <View style={styles.container}>
-
       <Text style={styles.title}>
-        Надіслане повідомлення
+        {t.message.sentMessage}
       </Text>
 
       <View style={styles.messageContainer}>
-
-        <Text style={styles.messageLabel}>
-          Ваше повідомлення:
+        <Text style={styles.label}>
+          {t.message.yourMessage}
         </Text>
 
         <Text style={styles.message}>
-          {text || 'Повідомлення відсутнє'}
+          {message || t.message.missing}
         </Text>
-
       </View>
-
     </View>
   );
 }
@@ -35,8 +57,8 @@ export default function MessageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     justifyContent: 'center',
+    padding: 20,
     backgroundColor: '#F5F5F5',
   },
 
@@ -52,20 +74,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
   },
 
-  messageLabel: {
-    fontSize: 16,
+  label: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#555555',
+    marginBottom: 15,
+    color: '#000000',
   },
 
   message: {
     fontSize: 18,
     lineHeight: 26,
-    color: '#000000',
+    color: '#333333',
   },
 });
