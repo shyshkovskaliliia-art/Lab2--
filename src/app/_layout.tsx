@@ -9,14 +9,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 
 import {
   AuthProvider,
-  useAuth,
 } from '@/context/AuthContext';
 
-import { Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,25 +31,25 @@ export default function RootLayout() {
         }
       >
         <AnimatedSplashOverlay />
-        <RootNavigator />
+
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen
+            name="login"
+          />
+
+          <Stack.Screen
+            name="(app)"
+          />
+
+          <Stack.Screen
+            name="message"
+          />
+        </Stack>
       </ThemeProvider>
     </AuthProvider>
   );
-}
-
-function RootNavigator() {
-  const {
-    user,
-    isLoading,
-  } = useAuth();
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (!user) {
-    return <Redirect href={'/login' as any} />;
-  }
-
-  return <AppTabs />;
 }
