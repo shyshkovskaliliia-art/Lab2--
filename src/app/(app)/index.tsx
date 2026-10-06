@@ -1,9 +1,4 @@
 import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
-import { getLocales } from 'expo-localization';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { testSupabaseConnection } from '@/lib/testSupabase';
-import { useAuth } from '../../context/AuthContext';
 
 import {
   AppState,
@@ -17,16 +12,47 @@ import {
   View,
 } from 'react-native';
 
-import {
-  isLanguage,
-  languageOptions,
-  translations,
-  type CityKey,
-  type Language,
-} from '@/constants/translations';
+import { router } from 'expo-router';
+import { getLocales } from 'expo-localization';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { testSupabaseConnection } from '@/lib/testSupabase';
+import { useAuth } from '@/context/AuthContext';
 
 type City = {
+  name: string;
+  description: string;
   image: any;
+};
+
+const cities: Record<string, City> = {
+  paris: {
+    name: 'Париж',
+    description:
+      'Париж — столиця Франції, відома своєю архітектурою та культурою.',
+    image: require('../../../assets/images/paris.jpg'),
+  },
+
+  tokyo: {
+    name: 'Токіо',
+    description:
+      'Токіо — столиця Японії, відома сучасними технологіями та культурою.',
+    image: require('../../../assets/images/tokyo.jpg'),
+  },
+
+  newyork: {
+    name: 'Нью-Йорк',
+    description:
+      'Нью-Йорк — велике місто США, відоме своїми хмарочосами та різноманітністю.',
+    image: require('../../../assets/images/newyork.jpg'),
+  },
+
+  kyiv: {
+    name: 'Київ',
+    description:
+      'Київ — столиця України, місто з багатою історією та культурою.',
+    image: require('../../../assets/images/kyiv.jpg'),
+  },
 };
 
 type TimerState = {
@@ -38,407 +64,506 @@ type TimerState = {
 const TIMER_STORAGE_KEY = 'lab3_timer_state';
 const LANGUAGE_STORAGE_KEY = 'lab3_language';
 
-const EMPTY_TIMER: TimerState = {
-  startedAt: null,
-  elapsedMs: 0,
-  running: false,
-};
-
-const cities: Record<CityKey, City> = {
-  paris: {
-image: require('../../../assets/images/paris.jpg'),  },
-
-  tokyo: {
-    image: require('../../../assets/images/tokyo.jpg'),
-  },
-
-  newyork: {
-    image: require('../../../assets/images/newyork.jpg'),
-  },
-
-  kyiv: {
-    image: require('../../../assets/images/kyiv.jpg'),
-  },
-};
-
-function getCurrentElapsed(timer: TimerState) {
-  if (!timer.running || timer.startedAt === null) {
-    return timer.elapsedMs;
-  }
-
-  return timer.elapsedMs + Math.max(0, Date.now() - timer.startedAt);
-}
-
-function formatTime(milliseconds: number) {
-  const totalSeconds = Math.floor(milliseconds / 1000);
-
-  const hours = Math.floor(totalSeconds / 3600);
-
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
-
-  const seconds = totalSeconds % 60;
-
-  return [hours, minutes, seconds]
-    .map((value) => String(value).padStart(2, '0'))
-    .join(':');
-}
-
 export default function HomeScreen() {
-  // =========================
-  // КОРИСТУВАЧ
-  // =========================
+  const {
+    user,
+    authElapsedSeconds,
+    signOut,
+  } = useAuth();
 
-  const { user } = useAuth();
-
-  // =========================
-  // МІСТА
-  // =========================
+  /*
+   * ================================
+   * МІСТА
+   * ================================
+   */
 
   const [selectedCity, setSelectedCity] =
-    useState<CityKey>('paris');
+    useState('paris');
 
   const [displayedCity, setDisplayedCity] =
-    useState<CityKey>('paris');
+    useState('paris');
 
   const [isCityOpen, setIsCityOpen] =
     useState(false);
 
-  // =========================
-  // ПОВІДОМЛЕННЯ
-  // =========================
-
-  const [message, setMessage] = useState('');
-
-  // =========================
-  // МОВА
-  // =========================
-
-  const [language, setLanguage] =
-    useState<Language>('uk');
-
-  const [isLanguageOpen, setIsLanguageOpen] =
-    useState(false);
-
-  // =========================
-  // ТАЙМЕР
-  // =========================
-
-  const [timer, setTimer] =
-    useState<TimerState>(EMPTY_TIMER);
-
-  const [elapsedMs, setElapsedMs] =
-    useState(0);
-
-  // =========================
-  // ПЕРЕВІРКА SUPABASE
-  // =========================
-
-  useEffect(() => {
-    const checkSupabase = async () => {
-      const result = (await testSupabaseConnection()) as
-        | {
-            success: true;
-            data: unknown;
-          }
-        | {
-            success: false;
-            message: string;
-          }
-        | void;
-
-      if (result && result.success) {
-        console.log('🟢 БАЗА ПРАЦЮЄ');
-        console.log('Користувачі:', result.data);
-      } else if (result) {
-        console.log(
-          '🔴 БАЗА НЕ ПРАЦЮЄ:',
-          result.message
-        );
-      } else {
-        console.log(
-          '🔴 БАЗА НЕ ПРАЦЮЄ: перевірка не повернула результат'
-        );
-      }
-    };
-
-    checkSupabase();
-  }, []);
-
-  // =========================
-  // ПОТОЧНІ ДАНІ
-  // =========================
-
-  const currentCity = cities[displayedCity];
-
-  const t = translations[language];
-
-  // =========================
-  // ЗАВАНТАЖЕННЯ ДАНИХ
-  // =========================
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Завантаження таймера
-        const savedTimer =
-          await AsyncStorage.getItem(
-            TIMER_STORAGE_KEY
-          );
-
-        if (savedTimer) {
-          const parsedTimer: TimerState =
-            JSON.parse(savedTimer);
-
-          setTimer(parsedTimer);
-
-          setElapsedMs(
-            getCurrentElapsed(parsedTimer)
-          );
-        }
-
-        // Завантаження мови
-        const savedLanguage =
-          await AsyncStorage.getItem(
-            LANGUAGE_STORAGE_KEY
-          );
-
-        if (
-          savedLanguage &&
-          isLanguage(savedLanguage)
-        ) {
-          setLanguage(savedLanguage);
-        } else {
-          // Якщо мову ще не вибирали,
-          // беремо мову пристрою
-          const deviceLanguage =
-            getLocales()[0]?.languageCode;
-
-          if (
-            deviceLanguage &&
-            isLanguage(deviceLanguage)
-          ) {
-            setLanguage(deviceLanguage);
-          }
-        }
-      } catch (error) {
-        console.log(
-          'Помилка завантаження даних:',
-          error
-        );
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // =========================
-  // ОНОВЛЕННЯ ТАЙМЕРА
-  // =========================
-
-  useEffect(() => {
-    const updateTimer = () => {
-      setElapsedMs(
-        getCurrentElapsed(timer)
-      );
-    };
-
-    updateTimer();
-
-    if (!timer.running) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      updateTimer();
-    }, 1000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [timer]);
-
-  // =========================
-  // РОБОТА ПРИ ЗГОРТАННІ /
-  // ПОВЕРНЕННІ / ПЕРЕКРИТТІ
-  // =========================
-
-  useEffect(() => {
-    const updateTimer = () => {
-      setElapsedMs(
-        getCurrentElapsed(timer)
-      );
-    };
-
-    const appStateSubscription =
-      AppState.addEventListener(
-        'change',
-        updateTimer
-      );
-
-    const focusSubscription =
-      AppState.addEventListener(
-        'focus',
-        updateTimer
-      );
-
-    const blurSubscription =
-      AppState.addEventListener(
-        'blur',
-        updateTimer
-      );
-
-    return () => {
-      appStateSubscription.remove();
-      focusSubscription.remove();
-      blurSubscription.remove();
-    };
-  }, [timer]);
-
-  // =========================
-  // ВИБІР МІСТА
-  // =========================
+  const currentCity =
+    cities[displayedCity];
 
   const handleCitySelect = (
-    cityKey: CityKey
+    cityKey: string
   ) => {
     setSelectedCity(cityKey);
     setDisplayedCity(cityKey);
     setIsCityOpen(false);
   };
 
-  // =========================
-  // ВИБІР МОВИ
-  // =========================
+  /*
+   * ================================
+   * МОВА
+   * ================================
+   */
 
+  const [language, setLanguage] =
+    useState('uk');
+
+  const [isLanguageOpen, setIsLanguageOpen] =
+    useState(false);
+
+  /*
+   * Отримання мови пристрою
+   */
+  useEffect(() => {
+    const deviceLanguage =
+      getLocales()[0]?.languageCode;
+
+    if (
+      deviceLanguage === 'uk' ||
+      deviceLanguage === 'en'
+    ) {
+      setLanguage(deviceLanguage);
+    }
+  }, []);
+
+  /*
+   * Завантаження збереженої мови
+   */
+  useEffect(() => {
+    const loadLanguage = async () => {
+      try {
+        const savedLanguage =
+          await AsyncStorage.getItem(
+            LANGUAGE_STORAGE_KEY
+          );
+
+        if (
+          savedLanguage === 'uk' ||
+          savedLanguage === 'en'
+        ) {
+          setLanguage(savedLanguage);
+        }
+      } catch (error) {
+        console.log(
+          '🔴 Помилка завантаження мови:',
+          error
+        );
+      }
+    };
+
+    loadLanguage();
+  }, []);
+
+  /*
+   * Збереження мови
+   */
   const handleLanguageSelect = async (
-    nextLanguage: Language
+    value: string
   ) => {
-    setLanguage(nextLanguage);
+    setLanguage(value);
     setIsLanguageOpen(false);
 
     try {
       await AsyncStorage.setItem(
         LANGUAGE_STORAGE_KEY,
-        nextLanguage
+        value
       );
     } catch (error) {
       console.log(
-        'Помилка збереження мови:',
+        '🔴 Помилка збереження мови:',
         error
       );
     }
   };
 
-  // =========================
-  // ЗБЕРЕЖЕННЯ ТАЙМЕРА
-  // =========================
+  /*
+   * ================================
+   * ЗВИЧАЙНИЙ ТАЙМЕР LAB 4
+   * ================================
+   */
 
-  const saveTimerState = async (
-    nextTimer: TimerState
-  ) => {
-    setTimer(nextTimer);
+  const [timerState, setTimerState] =
+    useState<TimerState>({
+      startedAt: null,
+      elapsedMs: 0,
+      running: false,
+    });
 
-    setElapsedMs(
-      getCurrentElapsed(nextTimer)
-    );
+  /*
+   * Завантаження стану таймера
+   */
+  useEffect(() => {
+    const loadTimer = async () => {
+      try {
+        const saved =
+          await AsyncStorage.getItem(
+            TIMER_STORAGE_KEY
+          );
+
+        if (saved) {
+          const parsed: TimerState =
+            JSON.parse(saved);
+
+          setTimerState(parsed);
+        }
+      } catch (error) {
+        console.log(
+          '🔴 Помилка завантаження таймера:',
+          error
+        );
+      }
+    };
+
+    loadTimer();
+  }, []);
+
+  /*
+   * Збереження стану таймера
+   */
+  useEffect(() => {
+    const saveTimer = async () => {
+      try {
+        await AsyncStorage.setItem(
+          TIMER_STORAGE_KEY,
+          JSON.stringify(timerState)
+        );
+      } catch (error) {
+        console.log(
+          '🔴 Помилка збереження таймера:',
+          error
+        );
+      }
+    };
+
+    saveTimer();
+  }, [timerState]);
+
+  /*
+   * Оновлення звичайного таймера
+   */
+  useEffect(() => {
+    if (!timerState.running) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimerState((previous) => {
+        if (!previous.running) {
+          return previous;
+        }
+
+        const startedAt =
+          previous.startedAt ?? Date.now();
+
+        return {
+          ...previous,
+          elapsedMs:
+            Date.now() - startedAt,
+        };
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [timerState.running]);
+
+  /*
+   * Робота таймера після повернення
+   * програми на передній план
+   */
+  useEffect(() => {
+    const subscription =
+      AppState.addEventListener(
+        'change',
+        (nextState) => {
+          if (
+            nextState === 'active' &&
+            timerState.running
+          ) {
+            setTimerState(
+              (previous) => {
+                if (
+                  !previous.running
+                ) {
+                  return previous;
+                }
+
+                const startedAt =
+                  previous.startedAt ??
+                  Date.now();
+
+                return {
+                  ...previous,
+                  elapsedMs:
+                    Date.now() -
+                    startedAt,
+                };
+              }
+            );
+          }
+        }
+      );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [timerState.running]);
+
+  /*
+   * Запуск звичайного таймера
+   */
+  const startTimer = () => {
+    setTimerState((previous) => ({
+      ...previous,
+      startedAt:
+        previous.startedAt ??
+        Date.now(),
+      running: true,
+    }));
+  };
+
+  /*
+   * Пауза звичайного таймера
+   */
+  const pauseTimer = () => {
+    setTimerState((previous) => ({
+      ...previous,
+      elapsedMs:
+        previous.startedAt
+          ? Date.now() -
+            previous.startedAt
+          : previous.elapsedMs,
+      running: false,
+    }));
+  };
+
+  /*
+   * Скидання звичайного таймера
+   */
+  const resetTimer = async () => {
+    const newState: TimerState = {
+      startedAt: null,
+      elapsedMs: 0,
+      running: false,
+    };
+
+    setTimerState(newState);
 
     try {
       await AsyncStorage.setItem(
         TIMER_STORAGE_KEY,
-        JSON.stringify(nextTimer)
+        JSON.stringify(newState)
       );
     } catch (error) {
       console.log(
-        'Помилка збереження таймера:',
+        '🔴 Помилка скидання таймера:',
         error
       );
     }
   };
 
-  // =========================
-  // ПОЧАТИ ТАЙМЕР
-  // =========================
+  /*
+   * Форматування звичайного таймера
+   */
+  const formatTimer = (
+    milliseconds: number
+  ) => {
+    const totalSeconds = Math.floor(
+      milliseconds / 1000
+    );
 
-  const handleStartTimer = async () => {
-    if (timer.running) {
-      return;
-    }
+    const hours = Math.floor(
+      totalSeconds / 3600
+    );
 
-    const now = Date.now();
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60
+    );
 
-    const nextTimer: TimerState = {
-      startedAt: now,
-      elapsedMs: timer.elapsedMs,
-      running: true,
-    };
+    const seconds =
+      totalSeconds % 60;
 
-    await saveTimerState(nextTimer);
+    return [
+      hours
+        .toString()
+        .padStart(2, '0'),
+      minutes
+        .toString()
+        .padStart(2, '0'),
+      seconds
+        .toString()
+        .padStart(2, '0'),
+    ].join(':');
   };
 
-  // =========================
-  // ПРИЗУПИНИТИ ТАЙМЕР
-  // =========================
+  /*
+   * ================================
+   * ТАЙМЕР АВТОРИЗАЦІЇ
+   * ================================
+   */
 
-  const handlePauseTimer = async () => {
-    if (!timer.running) {
-      return;
-    }
+  const formatAuthTime = (
+    totalSeconds: number
+  ) => {
+    const hours = Math.floor(
+      totalSeconds / 3600
+    );
 
-    const currentElapsed =
-      getCurrentElapsed(timer);
+    const minutes = Math.floor(
+      (totalSeconds % 3600) / 60
+    );
 
-    const nextTimer: TimerState = {
-      startedAt: null,
-      elapsedMs: currentElapsed,
-      running: false,
-    };
+    const seconds =
+      totalSeconds % 60;
 
-    await saveTimerState(nextTimer);
+    return [
+      hours
+        .toString()
+        .padStart(2, '0'),
+      minutes
+        .toString()
+        .padStart(2, '0'),
+      seconds
+        .toString()
+        .padStart(2, '0'),
+    ].join(':');
   };
 
-  // =========================
-  // СКИНУТИ ТАЙМЕР
-  // =========================
+  /*
+   * ================================
+   * ПОВІДОМЛЕННЯ
+   * ================================
+   */
 
-  const handleResetTimer = async () => {
-    await saveTimerState(EMPTY_TIMER);
+  const [message, setMessage] =
+    useState('');
+
+  const openMessageScreen = () => {
+    router.push({
+      pathname: '/message',
+      params: {
+        message,
+      },
+    });
   };
 
-  // =========================
-  // ПОВІДОМЛЕННЯ
-  // =========================
-
-  const handleSendInApp = () => {
-    if (message.trim()) {
-      router.push({
-        pathname: '/message' as any,
-        params: {
-          text: message,
-          lang: language,
-        },
-      });
-    }
-  };
-
-  // =========================
-  // SHARE
-  // =========================
+  /*
+   * ================================
+   * SHARE
+   * ================================
+   */
 
   const handleShare = async () => {
-    if (message.trim()) {
+    try {
       await Share.share({
-        message: message,
+        message:
+          `Моя подорож: ${currentCity.name}\n\n${currentCity.description}`,
       });
+    } catch (error) {
+      console.log(
+        '🔴 Помилка Share:',
+        error
+      );
     }
   };
 
-  // Поточна назва вибраної мови
-  const currentLanguage =
-    languageOptions.find(
-      (item) => item.code === language
-    );
+  /*
+   * ================================
+   * SUPABASE
+   * ================================
+   */
+
+  useEffect(() => {
+    const checkDatabase =
+      async () => {
+        const result =
+          await testSupabaseConnection();
+
+        if (result.success) {
+          console.log(
+            '🟢 БАЗА ПРАЦЮЄ'
+          );
+          console.log(
+            'Користувачі:',
+            result.data
+          );
+        } else {
+          console.log(
+            '🔴 БАЗА НЕ ПРАЦЮЄ:',
+            result.message
+          );
+        }
+      };
+
+    checkDatabase();
+  }, []);
+
+  /*
+   * ================================
+   * ВИХІД
+   * ================================
+   */
+
+  const handleLogout = async () => {
+    await signOut();
+
+    router.replace('/login');
+  };
+
+  /*
+   * ================================
+   * ТЕКСТИ МОВОЮ
+   * ================================
+   */
+
+  const texts = {
+    uk: {
+      title: 'МІСТА СВІТУ',
+      chooseCity: 'Оберіть місто:',
+      chooseLanguage: 'Мова:',
+      ukrainian: 'Українська',
+      english: 'English',
+      welcome: 'Вітаємо',
+      login: 'Логін',
+      authTime: 'Час авторизації',
+      timer: 'Таймер',
+      start: 'Старт',
+      pause: 'Пауза',
+      reset: 'Скинути',
+      message: 'Повідомлення',
+      messagePlaceholder:
+        'Введіть повідомлення...',
+      openMessage: 'Відкрити повідомлення',
+      share: 'Поділитися',
+      logout: 'Вийти',
+    },
+
+    en: {
+      title: 'CITIES OF THE WORLD',
+      chooseCity: 'Choose a city:',
+      chooseLanguage: 'Language:',
+      ukrainian: 'Ukrainian',
+      english: 'English',
+      welcome: 'Welcome',
+      login: 'Login',
+      authTime: 'Authorization time',
+      timer: 'Timer',
+      start: 'Start',
+      pause: 'Pause',
+      reset: 'Reset',
+      message: 'Message',
+      messagePlaceholder:
+        'Enter a message...',
+      openMessage: 'Open message',
+      share: 'Share',
+      logout: 'Log out',
+    },
+  };
+
+  const t = texts[
+    language === 'en'
+      ? 'en'
+      : 'uk'
+  ];
 
   return (
     <ImageBackground
@@ -447,31 +572,102 @@ export default function HomeScreen() {
       imageStyle={styles.backgroundImage}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={
+          styles.scrollContent
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        {/* ========================= */}
-        {/* ВЕРХНЯ ПАНЕЛЬ */}
-        {/* ========================= */}
+        <View style={styles.overlay}>
+          {/* ========================= */}
+          {/* КОРИСТУВАЧ */}
+          {/* ========================= */}
 
-        <View style={styles.topBar}>
-          <View />
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>
+              {t.welcome},{' '}
+              {user?.name ||
+                'користувачу'}!
+            </Text>
 
-          {/* Вибір мови */}
-          <View style={styles.languageContainer}>
+            {user?.login && (
+              <Text style={styles.userLogin}>
+                {t.login}: {user.login}
+              </Text>
+            )}
+          </View>
+
+          {/* ========================= */}
+          {/* ТАЙМЕР АВТОРИЗАЦІЇ */}
+          {/* ========================= */}
+
+          <View
+            style={styles.authTimer}
+          >
+            <Text
+              style={
+                styles.authTimerTitle
+              }
+            >
+              {t.authTime}
+            </Text>
+
+            <Text
+              style={
+                styles.authTimerValue
+              }
+            >
+              {formatAuthTime(
+                authElapsedSeconds
+              )}
+            </Text>
+          </View>
+
+          {/* ========================= */}
+          {/* ЗАГОЛОВОК */}
+          {/* ========================= */}
+
+          <Text style={styles.title}>
+            {t.title}
+          </Text>
+
+          {/* ========================= */}
+          {/* МОВА */}
+          {/* ========================= */}
+
+          <Text style={styles.label}>
+            {t.chooseLanguage}
+          </Text>
+
+          <View
+            style={
+              styles.dropdownContainer
+            }
+          >
             <Pressable
-              style={styles.languageButton}
+              style={
+                styles.dropdownButton
+              }
               onPress={() =>
                 setIsLanguageOpen(
                   !isLanguageOpen
                 )
               }
             >
-              <Text style={styles.languageText}>
-                {currentLanguage?.label}
+              <Text
+                style={
+                  styles.dropdownText
+                }
+              >
+                {language === 'uk'
+                  ? t.ukrainian
+                  : t.english}
               </Text>
 
-              <Text style={styles.languageArrow}>
+              <Text
+                style={styles.arrow}
+              >
                 {isLanguageOpen
                   ? '▲'
                   : '▼'}
@@ -480,109 +676,17 @@ export default function HomeScreen() {
 
             {isLanguageOpen && (
               <View
-                style={styles.languageList}
+                style={
+                  styles.dropdownList
+                }
               >
-                {languageOptions.map(
-                  (option) => (
-                    <Pressable
-                      key={option.code}
-                      style={
-                        styles.languageItem
-                      }
-                      onPress={() =>
-                        handleLanguageSelect(
-                          option.code
-                        )
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.languageItemText
-                        }
-                      >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  )
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* ========================= */}
-        {/* ІНФОРМАЦІЯ ПРО КОРИСТУВАЧА */}
-        {/* ========================= */}
-
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>
-            Вітаємо, {user?.name || 'користувачу'}!
-          </Text>
-
-          {user?.login && (
-            <Text style={styles.userLogin}>
-              Логін: {user.login}
-            </Text>
-          )}
-        </View>
-
-        {/* ========================= */}
-        {/* ЗАГОЛОВОК */}
-        {/* ========================= */}
-
-        <Text style={styles.title}>
-          {t.title}
-        </Text>
-
-        {/* ========================= */}
-        {/* МІСТА */}
-        {/* ========================= */}
-
-        <Text style={styles.label}>
-          {t.chooseCity}
-        </Text>
-
-        <View style={styles.dropdownContainer}>
-          <Pressable
-            style={styles.dropdownButton}
-            onPress={() =>
-              setIsCityOpen(!isCityOpen)
-            }
-          >
-            <Text
-              style={styles.dropdownText}
-            >
-              {
-                t.cities[selectedCity]
-                  .name
-              }
-            </Text>
-
-            <Text style={styles.arrow}>
-              {isCityOpen ? '▲' : '▼'}
-            </Text>
-          </Pressable>
-
-          {isCityOpen && (
-            <View
-              style={styles.dropdownList}
-            >
-              {(
-                [
-                  'paris',
-                  'tokyo',
-                  'newyork',
-                  'kyiv',
-                ] as CityKey[]
-              ).map((cityKey) => (
                 <Pressable
-                  key={cityKey}
                   style={
                     styles.dropdownItem
                   }
                   onPress={() =>
-                    handleCitySelect(
-                      cityKey
+                    handleLanguageSelect(
+                      'uk'
                     )
                   }
                 >
@@ -591,152 +695,338 @@ export default function HomeScreen() {
                       styles.dropdownItemText
                     }
                   >
-                    {
-                      t.cities[cityKey]
-                        .name
-                    }
+                    Українська
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
 
-        {/* ========================= */}
-        {/* ІНФОРМАЦІЯ ПРО МІСТО */}
-        {/* ========================= */}
-
-        <View style={styles.infoContainer}>
-          <Text style={styles.cityName}>
-            {t.cities[displayedCity].name}
-          </Text>
-
-          <Text style={styles.description}>
-            {
-              t.cities[displayedCity]
-                .description
-            }
-          </Text>
-        </View>
-
-        {/* ========================= */}
-        {/* ТАЙМЕР */}
-        {/* ========================= */}
-
-        <View style={styles.timerSection}>
-          <Text style={styles.timerTitle}>
-            {t.timer.title}
-          </Text>
-
-          <Text style={styles.timerValue}>
-            {formatTime(elapsedMs)}
-          </Text>
-
-          <Text style={styles.timerStatus}>
-            {timer.running
-              ? t.timer.running
-              : t.timer.paused}
-          </Text>
-
-          <View style={styles.timerButtons}>
-            {!timer.running ? (
-              <Pressable
-                style={styles.startButton}
-                onPress={
-                  handleStartTimer
-                }
-              >
-                <Text
+                <Pressable
                   style={
-                    styles.timerButtonText
+                    styles.dropdownItem
+                  }
+                  onPress={() =>
+                    handleLanguageSelect(
+                      'en'
+                    )
                   }
                 >
-                  ▶ {t.timer.start}
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={styles.pauseButton}
-                onPress={
-                  handlePauseTimer
-                }
-              >
-                <Text
-                  style={
-                    styles.timerButtonText
-                  }
-                >
-                  ⏸ {t.timer.pause}
-                </Text>
-              </Pressable>
+                  <Text
+                    style={
+                      styles.dropdownItemText
+                    }
+                  >
+                    English
+                  </Text>
+                </Pressable>
+              </View>
             )}
+          </View>
 
+          {/* ========================= */}
+          {/* МІСТО */}
+          {/* ========================= */}
+
+          <Text style={styles.label}>
+            {t.chooseCity}
+          </Text>
+
+          <View
+            style={
+              styles.dropdownContainer
+            }
+          >
             <Pressable
-              style={styles.resetButton}
-              onPress={
-                handleResetTimer
+              style={
+                styles.dropdownButton
+              }
+              onPress={() =>
+                setIsCityOpen(
+                  !isCityOpen
+                )
               }
             >
               <Text
                 style={
-                  styles.timerButtonText
+                  styles.dropdownText
                 }
               >
-                🔄 {t.timer.reset}
+                {
+                  cities[selectedCity]
+                    .name
+                }
+              </Text>
+
+              <Text
+                style={styles.arrow}
+              >
+                {isCityOpen
+                  ? '▲'
+                  : '▼'}
+              </Text>
+            </Pressable>
+
+            {isCityOpen && (
+              <View
+                style={
+                  styles.dropdownList
+                }
+              >
+                <Pressable
+                  style={
+                    styles.dropdownItem
+                  }
+                  onPress={() =>
+                    handleCitySelect(
+                      'paris'
+                    )
+                  }
+                >
+                  <Text
+                    style={
+                      styles.dropdownItemText
+                    }
+                  >
+                    Париж
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={
+                    styles.dropdownItem
+                  }
+                  onPress={() =>
+                    handleCitySelect(
+                      'tokyo'
+                    )
+                  }
+                >
+                  <Text
+                    style={
+                      styles.dropdownItemText
+                    }
+                  >
+                    Токіо
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={
+                    styles.dropdownItem
+                  }
+                  onPress={() =>
+                    handleCitySelect(
+                      'newyork'
+                    )
+                  }
+                >
+                  <Text
+                    style={
+                      styles.dropdownItemText
+                    }
+                  >
+                    Нью-Йорк
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={
+                    styles.dropdownItem
+                  }
+                  onPress={() =>
+                    handleCitySelect(
+                      'kyiv'
+                    )
+                  }
+                >
+                  <Text
+                    style={
+                      styles.dropdownItemText
+                    }
+                  >
+                    Київ
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* ========================= */}
+          {/* ІНФОРМАЦІЯ ПРО МІСТО */}
+          {/* ========================= */}
+
+          <View
+            style={styles.infoContainer}
+          >
+            <Text
+              style={styles.cityName}
+            >
+              {currentCity.name}
+            </Text>
+
+            <Text
+              style={styles.description}
+            >
+              {currentCity.description}
+            </Text>
+          </View>
+
+          {/* ========================= */}
+          {/* ЗВИЧАЙНИЙ ТАЙМЕР */}
+          {/* ========================= */}
+
+          <View
+            style={styles.timerContainer}
+          >
+            <Text
+              style={styles.sectionTitle}
+            >
+              {t.timer}
+            </Text>
+
+            <Text
+              style={styles.timerValue}
+            >
+              {formatTimer(
+                timerState.elapsedMs
+              )}
+            </Text>
+
+            <View
+              style={
+                styles.timerButtons
+              }
+            >
+              {!timerState.running ? (
+                <Pressable
+                  style={
+                    styles.primaryButton
+                  }
+                  onPress={
+                    startTimer
+                  }
+                >
+                  <Text
+                    style={
+                      styles.buttonText
+                    }
+                  >
+                    {t.start}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={
+                    styles.warningButton
+                  }
+                  onPress={
+                    pauseTimer
+                  }
+                >
+                  <Text
+                    style={
+                      styles.buttonText
+                    }
+                  >
+                    {t.pause}
+                  </Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                style={
+                  styles.secondaryButton
+                }
+                onPress={
+                  resetTimer
+                }
+              >
+                <Text
+                  style={
+                    styles.secondaryButtonText
+                  }
+                >
+                  {t.reset}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* ========================= */}
+          {/* ПОВІДОМЛЕННЯ */}
+          {/* ========================= */}
+
+          <View
+            style={styles.messageContainer}
+          >
+            <Text
+              style={styles.sectionTitle}
+            >
+              {t.message}
+            </Text>
+
+            <TextInput
+              style={styles.messageInput}
+              placeholder={
+                t.messagePlaceholder
+              }
+              placeholderTextColor="#888888"
+              value={message}
+              onChangeText={setMessage}
+              multiline
+            />
+
+            <Pressable
+              style={
+                styles.primaryButton
+              }
+              onPress={
+                openMessageScreen
+              }
+            >
+              <Text
+                style={
+                  styles.buttonText
+                }
+              >
+                {t.openMessage}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={
+                styles.secondaryButton
+              }
+              onPress={
+                handleShare
+              }
+            >
+              <Text
+                style={
+                  styles.secondaryButtonText
+                }
+              >
+                {t.share}
               </Text>
             </Pressable>
           </View>
-        </View>
 
-        {/* ========================= */}
-        {/* ПОВІДОМЛЕННЯ */}
-        {/* ========================= */}
-
-        <View style={styles.messageSection}>
-          <Text
-            style={styles.messageTitle}
-          >
-            {t.message.title}
-          </Text>
-
-          <Text
-            style={styles.messageLabel}
-          >
-            {t.message.inputLabel}
-          </Text>
-
-          <TextInput
-            style={styles.messageInput}
-            placeholder={
-              t.message.placeholder
-            }
-            placeholderTextColor="#888888"
-            value={message}
-            onChangeText={setMessage}
-            multiline
-          />
+          {/* ========================= */}
+          {/* ВИХІД */}
+          {/* ========================= */}
 
           <Pressable
-            style={styles.sendButton}
+            style={
+              styles.logoutButton
+            }
             onPress={
-              handleSendInApp
+              handleLogout
             }
           >
             <Text
-              style={styles.sendButtonText}
+              style={
+                styles.logoutButtonText
+              }
             >
-              {t.message.sendInApp}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.shareButton}
-            onPress={handleShare}
-          >
-            <Text
-              style={styles.shareButtonText}
-            >
-              {t.message.shareApps}
+              {t.logout}
             </Text>
           </Pressable>
         </View>
@@ -754,115 +1044,66 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
 
-  container: {
+  scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+  },
+
+  overlay: {
+    flexGrow: 1,
     padding: 20,
+    paddingTop: 50,
+    paddingBottom: 40,
     backgroundColor:
-      'rgba(255, 255, 255, 0.82)',
+      'rgba(255, 255, 255, 0.84)',
   },
-
-  // =========================
-  // ВЕРХНЯ ПАНЕЛЬ
-  // =========================
-
-  topBar: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-
-  languageContainer: {
-    position: 'relative',
-    zIndex: 100,
-    elevation: 100,
-  },
-
-  languageButton: {
-    minWidth: 145,
-    height: 45,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  languageText: {
-    fontSize: 14,
-    color: '#000000',
-  },
-
-  languageArrow: {
-    fontSize: 14,
-    color: '#000000',
-    marginLeft: 5,
-  },
-
-  languageList: {
-    position: 'absolute',
-    top: 50,
-    right: 0,
-    width: 180,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderRadius: 10,
-    overflow: 'hidden',
-    zIndex: 200,
-    elevation: 200,
-  },
-
-  languageItem: {
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-
-  languageItemText: {
-    fontSize: 15,
-    color: '#000000',
-  },
-
-  // =========================
-  // ІНФОРМАЦІЯ ПРО КОРИСТУВАЧА
-  // =========================
 
   userInfo: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 15,
-    marginBottom: 20,
+    marginBottom: 12,
     alignItems: 'center',
   },
 
   userName: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: 'bold',
     color: '#000000',
   },
 
   userLogin: {
     fontSize: 15,
-    color: '#666666',
+    color: '#555555',
     marginTop: 5,
   },
 
-  // =========================
-  // ЗАГОЛОВОК
-  // =========================
+  authTimer: {
+    backgroundColor: '#EAF4FF',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 25,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#B9DDFF',
+  },
+
+  authTimerTitle: {
+    fontSize: 15,
+    color: '#555555',
+    marginBottom: 5,
+  },
+
+  authTimerValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#208AEF',
+  },
 
   title: {
     fontSize: 30,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 35,
+    marginBottom: 30,
     color: '#000000',
   },
 
@@ -870,16 +1111,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 10,
     color: '#000000',
+    fontWeight: '500',
   },
 
-  // =========================
-  // DROPDOWN МІСТ
-  // =========================
-
   dropdownContainer: {
-    marginBottom: 25,
-    zIndex: 50,
-    elevation: 50,
+    marginBottom: 20,
   },
 
   dropdownButton: {
@@ -925,14 +1161,11 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  // =========================
-  // ІНФОРМАЦІЯ ПРО МІСТО
-  // =========================
-
   infoContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 20,
+    marginBottom: 20,
   },
 
   cityName: {
@@ -950,36 +1183,26 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  // =========================
-  // ТАЙМЕР
-  // =========================
-
-  timerSection: {
-    marginTop: 25,
+  timerContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 20,
+    marginBottom: 20,
     alignItems: 'center',
   },
 
-  timerTitle: {
-    fontSize: 24,
+  sectionTitle: {
+    fontSize: 21,
     fontWeight: 'bold',
     color: '#000000',
-    marginBottom: 10,
+    marginBottom: 15,
+    textAlign: 'center',
   },
 
   timerValue: {
-    fontSize: 42,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#208AEF',
-    letterSpacing: 2,
-    marginVertical: 10,
-  },
-
-  timerStatus: {
-    fontSize: 16,
-    color: '#555555',
     marginBottom: 15,
   },
 
@@ -988,93 +1211,71 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
-  startButton: {
+  primaryButton: {
     backgroundColor: '#208AEF',
     borderRadius: 10,
     padding: 15,
     alignItems: 'center',
+    marginTop: 10,
   },
 
-  pauseButton: {
-    backgroundColor: '#E67E22',
+  warningButton: {
+    backgroundColor: '#F39C12',
     borderRadius: 10,
     padding: 15,
     alignItems: 'center',
+    marginTop: 10,
   },
 
-  resetButton: {
-    backgroundColor: '#333333',
+  secondaryButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#208AEF',
     borderRadius: 10,
     padding: 15,
     alignItems: 'center',
+    marginTop: 10,
   },
 
-  timerButtonText: {
+  buttonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: 'bold',
   },
 
-  // =========================
-  // ПОВІДОМЛЕННЯ
-  // =========================
+  secondaryButtonText: {
+    color: '#208AEF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
 
-  messageSection: {
-    marginTop: 25,
+  messageContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 20,
-  },
-
-  messageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
     marginBottom: 20,
-    color: '#000000',
-  },
-
-  messageLabel: {
-    fontSize: 18,
-    marginBottom: 10,
-    color: '#000000',
   },
 
   messageInput: {
-    backgroundColor: '#FFFFFF',
+    minHeight: 100,
     borderWidth: 1,
     borderColor: '#CCCCCC',
     borderRadius: 10,
     padding: 15,
-    fontSize: 17,
-    minHeight: 100,
-    textAlignVertical: 'top',
+    fontSize: 16,
     color: '#000000',
+    textAlignVertical: 'top',
   },
 
-  sendButton: {
-    backgroundColor: '#208AEF',
+  logoutButton: {
+    backgroundColor: '#D32F2F',
     borderRadius: 10,
     padding: 15,
-    marginTop: 15,
     alignItems: 'center',
+    marginTop: 5,
   },
 
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-
-  shareButton: {
-    backgroundColor: '#333333',
-    borderRadius: 10,
-    padding: 15,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-
-  shareButtonText: {
+  logoutButtonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: 'bold',
