@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { getLocales } from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { testSupabaseConnection } from '@/lib/testSupabase';
+import { useAuth } from '../../context/AuthContext';
+
 import {
   AppState,
   ImageBackground,
@@ -86,6 +88,12 @@ function formatTime(milliseconds: number) {
 
 export default function HomeScreen() {
   // =========================
+  // КОРИСТУВАЧ
+  // =========================
+
+  const { user } = useAuth();
+
+  // =========================
   // МІСТА
   // =========================
 
@@ -124,6 +132,10 @@ export default function HomeScreen() {
   const [elapsedMs, setElapsedMs] =
     useState(0);
 
+  // =========================
+  // ПЕРЕВІРКА SUPABASE
+  // =========================
+
   useEffect(() => {
     const checkSupabase = async () => {
       const result = (await testSupabaseConnection()) as
@@ -141,14 +153,20 @@ export default function HomeScreen() {
         console.log('🟢 БАЗА ПРАЦЮЄ');
         console.log('Користувачі:', result.data);
       } else if (result) {
-        console.log('🔴 БАЗА НЕ ПРАЦЮЄ:', result.message);
+        console.log(
+          '🔴 БАЗА НЕ ПРАЦЮЄ:',
+          result.message
+        );
       } else {
-        console.log('🔴 БАЗА НЕ ПРАЦЮЄ: перевірка не повернула результат');
+        console.log(
+          '🔴 БАЗА НЕ ПРАЦЮЄ: перевірка не повернула результат'
+        );
       }
     };
 
     checkSupabase();
   }, []);
+
   // =========================
   // ПОТОЧНІ ДАНІ
   // =========================
@@ -175,6 +193,7 @@ export default function HomeScreen() {
             JSON.parse(savedTimer);
 
           setTimer(parsedTimer);
+
           setElapsedMs(
             getCurrentElapsed(parsedTimer)
           );
@@ -385,9 +404,7 @@ export default function HomeScreen() {
   // =========================
 
   const handleResetTimer = async () => {
-    await saveTimerState(
-      EMPTY_TIMER
-    );
+    await saveTimerState(EMPTY_TIMER);
   };
 
   // =========================
@@ -492,6 +509,22 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
+        </View>
+
+        {/* ========================= */}
+        {/* ІНФОРМАЦІЯ ПРО КОРИСТУВАЧА */}
+        {/* ========================= */}
+
+        <View style={styles.userInfo}>
+          <Text style={styles.userName}>
+            Вітаємо, {user?.name || 'користувачу'}!
+          </Text>
+
+          {user?.login && (
+            <Text style={styles.userLogin}>
+              Логін: {user.login}
+            </Text>
+          )}
         </View>
 
         {/* ========================= */}
@@ -796,6 +829,30 @@ const styles = StyleSheet.create({
   languageItemText: {
     fontSize: 15,
     color: '#000000',
+  },
+
+  // =========================
+  // ІНФОРМАЦІЯ ПРО КОРИСТУВАЧА
+  // =========================
+
+  userInfo: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+
+  userName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+
+  userLogin: {
+    fontSize: 15,
+    color: '#666666',
+    marginTop: 5,
   },
 
   // =========================
