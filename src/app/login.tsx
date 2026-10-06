@@ -42,7 +42,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/');
+    router.replace('/(app)');
   };
 
   return (
