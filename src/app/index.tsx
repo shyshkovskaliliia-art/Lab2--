@@ -124,6 +124,31 @@ export default function HomeScreen() {
   const [elapsedMs, setElapsedMs] =
     useState(0);
 
+  useEffect(() => {
+    const checkSupabase = async () => {
+      const result = (await testSupabaseConnection()) as
+        | {
+            success: true;
+            data: unknown;
+          }
+        | {
+            success: false;
+            message: string;
+          }
+        | void;
+
+      if (result && result.success) {
+        console.log('🟢 БАЗА ПРАЦЮЄ');
+        console.log('Користувачі:', result.data);
+      } else if (result) {
+        console.log('🔴 БАЗА НЕ ПРАЦЮЄ:', result.message);
+      } else {
+        console.log('🔴 БАЗА НЕ ПРАЦЮЄ: перевірка не повернула результат');
+      }
+    };
+
+    checkSupabase();
+  }, []);
   // =========================
   // ПОТОЧНІ ДАНІ
   // =========================
